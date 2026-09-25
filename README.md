@@ -126,14 +126,14 @@ The LPT-free build uses the keyboard controls listed above. The `H` shortcut sti
 
 ## Modern web player
 
-The `web-jukebox` branch contains a dependency-free browser kiosk with a credit counter, paid queue, searchable song list, per-track actions, fullscreen mode, and local drag-and-drop music loading. Open `web/index.html` directly, or serve the folder locally:
+The `web-jukebox` branch contains a dependency-free browser vending kiosk. The operator selects one root music folder once; supported browsers persist that folder and restore its folder tree on the next launch. The public UI has no free-credit button: credits are inserted through the coin slot or `C`/`F1`, then spent on a track or queue slot. Open `web/index.html` directly, or serve the folder locally:
 
 ```sh
 cd web
 python3 -m http.server 8080
 ```
 
-Then open `http://localhost:8080`. Use **Відкрити теку** to select a local music directory, or drag audio files onto the drop zone. Files are read locally by the browser and are not uploaded.
+Then open `http://localhost:8080`. In operator mode choose **Налаштувати теку** once; the browser stores the directory handle locally. Files are read locally by the browser and are not uploaded. The **Вибрати файли вручну** and drag-and-drop options are fallbacks for browsers without persistent directory access.
 
 Web player shortcuts:
 
@@ -144,3 +144,4 @@ Web player shortcuts:
 - `←` / `→`: seek five seconds
 - `M`: mute or unmute
 - `/`: focus search
+- `O`: open operator settings

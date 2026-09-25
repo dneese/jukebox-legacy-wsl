@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b1020">
-  <title>JukeBox — Kiosk Web Player</title>
+  <title>JukeBox — Vending Kiosk</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,28 +15,53 @@
       <a class="brand" href="." aria-label="JukeBox home">
         <span class="brand-mark">J</span>
         <span class="brand-copy">
-          <span class="eyebrow">KIOSK EDITION</span>
+          <span class="eyebrow">VENDING EDITION</span>
           <span class="brand-name">JukeBox</span>
         </span>
       </a>
-      <div class="kiosk-state"><span class="online-dot"></span>Локальний режим</div>
+      <div class="kiosk-state"><span class="online-dot"></span>Готовий до роботи</div>
       <div class="topbar-actions">
         <button class="button button-quiet" id="fullscreenButton" type="button" title="Повний екран">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/></svg>
           <span> kiosk</span>
         </button>
-        <label class="button button-quiet" for="fileInput">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
-          <span>Файли</span>
-        </label>
-        <label class="button button-primary" for="folderInput">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6.5A2.5 2.5 0 0 1 21 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5v-9Z"/></svg>
-          <span>Відкрити теку</span>
-        </label>
-        <input id="fileInput" type="file" accept="audio/*" multiple hidden>
-        <input id="folderInput" type="file" webkitdirectory directory multiple hidden>
+        <button class="button button-quiet" id="operatorButton" type="button" title="Режим оператора">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0-12.5v2m0 14v2m9-9h-2M5 12H3m15.36-6.36-1.42 1.42M7.06 16.94l-1.42 1.42m0-11.32 1.42 1.42m9.88 9.88 1.42 1.42"/></svg>
+          <span>Оператор</span>
+        </button>
       </div>
     </header>
+
+    <section class="operator-bar" aria-label="Налаштування бібліотеки">
+      <div class="root-status">
+        <span class="operator-label">КОРЕНЕВА ТЕКА</span>
+        <strong id="rootFolderName">Не налаштовано</strong>
+        <span id="libraryStatus">Оберіть теку з музикою</span>
+      </div>
+      <div class="operator-actions">
+        <button class="button button-quiet" id="rootFolderButton" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6.5A2.5 2.5 0 0 1 21 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5v-9Z"/></svg>
+          <span>Налаштувати теку</span>
+        </button>
+        <button class="button button-quiet" id="rescanButton" type="button" title="Перечитати файли">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.9-3M4 5v4h4m-4 2a8 8 0 0 0 14.9 3M20 19v-4h-4"/></svg>
+          <span>Оновити</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="operator-panel" id="operatorPanel" hidden>
+      <div>
+        <span class="eyebrow">СЕРВІСНЕ МЕНЮ</span>
+        <h2>Налаштування оператора</h2>
+        <p id="storageNote">Після вибору теки вона збережеться в браузері. Під час наступного запуску JukeBox автоматично покаже її вміст.</p>
+      </div>
+      <div class="operator-panel-actions">
+        <button class="button button-primary" id="connectRootButton" type="button">Підключити збережену теку</button>
+        <button class="button button-quiet" id="fallbackFilesButton" type="button">Вибрати файли вручну</button>
+        <button class="button button-danger" id="clearLibraryButton" type="button">Очистити бібліотеку</button>
+      </div>
+    </section>
 
     <main class="kiosk-layout">
       <section class="player-card glass-card" aria-labelledby="nowPlayingHeading">
@@ -48,19 +73,19 @@
           </div>
           <div class="player-content">
             <div class="track-meta-line">
-              <span class="status-pill" id="statusPill"><span class="status-dot"></span>ОЧІКУЄ КРЕДИТ</span>
+              <span class="status-pill" id="statusPill"><span class="status-dot"></span>ВСТАВТЕ МОНЕТУ</span>
               <span class="track-count" id="trackCount">0 треків</span>
             </div>
             <span class="now-label">ЗАРАЗ ГРАЄ</span>
-            <h1 id="nowPlayingHeading">Оберіть музику</h1>
-            <p class="track-subtitle" id="trackArtist">Додайте трек або відкрийте локальну теку</p>
+            <h1 id="nowPlayingHeading">Оберіть пісню</h1>
+            <p class="track-subtitle" id="trackArtist">Вставте монету та оберіть трек</p>
             <div class="progress-row">
               <span id="currentTime">0:00</span>
               <input id="progressBar" class="range progress-range" type="range" min="0" max="1000" value="0" step="1" aria-label="Позиція відтворення">
               <span id="totalTime">0:00</span>
             </div>
             <div class="player-controls">
-              <button class="icon-button" id="previousButton" type="button" aria-label="Попередній трек" title="Попередній">
+              <button class="icon-button" id="previousButton" type="button" aria-label="Попередній трек" title="Назад">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M18 6l-8 6 8 6V6Z"/></svg>
               </button>
               <button class="play-button" id="playButton" type="button" aria-label="Відтворити" title="Відтворити">
@@ -81,9 +106,13 @@
             </div>
           </div>
         </div>
-        <div class="credit-strip">
-          <div class="credit-display"><span>КРЕДИТИ</span><strong id="creditCount">1</strong></div>
-          <button class="credit-button" id="addCreditButton" type="button"><span>+1 кредит</span><kbd>F1</kbd></button>
+        <div class="coin-panel">
+          <button class="coin-slot" id="coinButton" type="button" aria-label="Вставити монету">
+            <span class="coin-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v10m3-7.5c-.6-.8-1.5-1.2-3-1.2-1.7 0-2.8.8-2.8 2s1 1.7 2.8 2.1c1.8.4 2.8 1 2.8 2.1 0 1.2-1.1 2-2.8 2-1.5 0-2.4-.4-3-1.2"/></svg></span>
+            <span class="coin-copy"><strong>ВСТАВТЕ МОНЕТУ</strong><small>додасть 1 кредит</small></span>
+            <kbd>C</kbd>
+          </button>
+          <div class="credit-display"><span>КРЕДИТИ</span><strong id="creditCount">0</strong></div>
           <div class="queue-summary"><span>ЧЕРГА</span><strong id="queueCount">0</strong></div>
         </div>
       </section>
@@ -91,7 +120,7 @@
       <section class="queue-card glass-card" aria-labelledby="queueHeading">
         <div class="section-heading">
           <div>
-            <span class="eyebrow">НАступні</span>
+            <span class="eyebrow">НАСТУПНІ</span>
             <h2 id="queueHeading">Черга</h2>
           </div>
           <button class="text-button" id="clearQueueButton" type="button">Очистити</button>
@@ -100,9 +129,9 @@
         <div class="queue-empty" id="queueEmpty">
           <span class="queue-empty-icon">≡</span>
           <strong>Черга порожня</strong>
-          <span>Додай треки кнопкою «В чергу»</span>
+          <span>Оберіть пісню та додайте її сюди</span>
         </div>
-        <p class="queue-hint">Кредит витрачається при запуску або додаванні в чергу. Зняття з черги повертає кредит.</p>
+        <p class="queue-hint">Для черги потрібен кредит. Після завершення треку наступний почне грати автоматично.</p>
       </section>
 
       <section class="library-card glass-card" aria-labelledby="libraryHeading">
@@ -113,38 +142,45 @@
           </div>
           <span class="library-badge" id="libraryBadge">0</span>
         </div>
-        <div class="search-box">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
-          <input id="searchInput" type="search" placeholder="Пошук за назвою або виконавцем" autocomplete="off">
-          <kbd>/</kbd>
+        <div class="library-nav">
+          <button class="breadcrumb-button" id="rootBreadcrumb" type="button">Корінь</button>
+          <span class="breadcrumb-current" id="breadcrumbCurrent">/</span>
+          <div class="search-box">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+            <input id="searchInput" type="search" placeholder="Пошук у поточній теці" autocomplete="off">
+            <kbd>/</kbd>
+          </div>
         </div>
-        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Додати музику">
+        <div class="folder-list" id="folderList" aria-label="Підпапки"></div>
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Додати музику вручну">
           <div class="dropzone-icon">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
           </div>
-          <strong>Перетягніть аудіофайли сюди</strong>
-          <span>MP3, M4A, OGG, WAV та інші підтримувані формати</span>
+          <strong>Перетягніть файли сюди</strong>
+          <span>Резервний спосіб для оператора</span>
         </div>
         <ol class="playlist" id="playlist" aria-live="polite"></ol>
         <div class="empty-playlist" id="emptyPlaylist">
           <span class="empty-icon">♪</span>
-          <strong>Список пісень порожній</strong>
-          <span>Додай кілька треків, щоб почати</span>
+          <strong>Бібліотека не налаштована</strong>
+          <span>Відкрийте налаштування оператора та оберіть кореневу теку</span>
         </div>
       </section>
     </main>
 
     <footer class="footer-bar">
-      <span><kbd>F1</kbd> кредит</span>
+      <span><kbd>C</kbd> монета</span>
       <span><kbd>Space</kbd> пауза</span>
       <span><kbd>N</kbd> далі з черги</span>
       <span><kbd>M</kbd> звук</span>
       <span class="footer-spacer"></span>
-      <span id="footerStatus">Файли залишаються на твоєму пристрої</span>
+      <span id="footerStatus">Файли залишаються на вашому пристрої</span>
     </footer>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <audio id="audio" preload="metadata"></audio>
+  <input id="fileInput" type="file" accept="audio/*" multiple hidden>
+  <input id="folderInput" type="file" webkitdirectory directory multiple hidden>
   <script src="app.js" defer></script>
 </body>
 </html>
