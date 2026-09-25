@@ -1,5 +1,7 @@
 # JukeBox1
+## Screenshot
 
+![JukeBox1 screenshot](2026-09-25_183133.png)
 Legacy Qt3/X11 music-player interface with keyboard controls and optional kiosk hardware support.
 
 ## Current changes
