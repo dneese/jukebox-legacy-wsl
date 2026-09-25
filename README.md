@@ -1,4 +1,4 @@
-# JukeBox1
+# JukeBox 2006 year edition
 ## Screenshot
 
 ![JukeBox1 screenshot](2026-09-25_183133.png)
