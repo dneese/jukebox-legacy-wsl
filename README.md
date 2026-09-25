@@ -123,3 +123,22 @@ wsl -d Debian --cd /opt/jb-squeeze/root/JukeBox1 -- \
 ```
 
 The LPT-free build uses the keyboard controls listed above. The `H` shortcut still invokes `/sbin/halt` and should not be pressed on a development machine.
+
+## Modern web player
+
+The `web-jukebox` branch contains a dependency-free browser player. Open `web/index.html` directly, or serve the folder locally:
+
+```sh
+cd web
+python3 -m http.server 8080
+```
+
+Then open `http://localhost:8080`. Use **Відкрити теку** to select a local music directory, or drag audio files onto the drop zone. Files are read locally by the browser and are not uploaded.
+
+Web player shortcuts:
+
+- `Space`: play or pause
+- `N` / `P`: next or previous track
+- `←` / `→`: seek five seconds
+- `M`: mute or unmute
+- `/`: focus search
