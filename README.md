@@ -126,7 +126,7 @@ The LPT-free build uses the keyboard controls listed above. The `H` shortcut sti
 
 ## Modern web player
 
-The `web-jukebox` branch contains a dependency-free browser player. Open `web/index.html` directly, or serve the folder locally:
+The `web-jukebox` branch contains a dependency-free browser kiosk with a credit counter, paid queue, searchable song list, per-track actions, fullscreen mode, and local drag-and-drop music loading. Open `web/index.html` directly, or serve the folder locally:
 
 ```sh
 cd web
@@ -137,8 +137,10 @@ Then open `http://localhost:8080`. Use **Відкрити теку** to select a
 
 Web player shortcuts:
 
+- `F1` or `C`: add one credit
 - `Space`: play or pause
-- `N` / `P`: next or previous track
+- `N`: play the next paid queue item
+- `P`: return to the previous track
 - `←` / `→`: seek five seconds
 - `M`: mute or unmute
 - `/`: focus search

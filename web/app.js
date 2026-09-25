@@ -8,6 +8,14 @@ const elements = {
   searchInput: document.querySelector('#searchInput'),
   playlist: document.querySelector('#playlist'),
   emptyPlaylist: document.querySelector('#emptyPlaylist'),
+  queueList: document.querySelector('#queueList'),
+  queueEmpty: document.querySelector('#queueEmpty'),
+  queueHint: document.querySelector('.queue-hint'),
+  clearQueueButton: document.querySelector('#clearQueueButton'),
+  creditCount: document.querySelector('#creditCount'),
+  queueCount: document.querySelector('#queueCount'),
+  addCreditButton: document.querySelector('#addCreditButton'),
+  fullscreenButton: document.querySelector('#fullscreenButton'),
   trackCount: document.querySelector('#trackCount'),
   libraryBadge: document.querySelector('#libraryBadge'),
   trackTitle: document.querySelector('#nowPlayingHeading'),
@@ -32,7 +40,11 @@ const elements = {
 const audio = elements.audio;
 const state = {
   tracks: [],
+  queue: [],
+  history: [],
   currentIndex: -1,
+  currentPaid: false,
+  credits: 1,
   query: '',
   muted: false,
   previousVolume: 0.8,
@@ -66,14 +78,17 @@ function isAudioFile(file) {
 
 function createTrack(file) {
   const names = parseTrackName(file.name);
-  const url = URL.createObjectURL(file);
   return {
     file,
-    url,
+    url: URL.createObjectURL(file),
     artist: names.artist,
     title: names.title,
     duration: 0
   };
+}
+
+function getTrack(index) {
+  return state.tracks[index] || null;
 }
 
 function setRangeFill(input, percentage) {
@@ -98,13 +113,36 @@ function setStatus(text, playing = false) {
   }
 }
 
+function updateCredits() {
+  elements.creditCount.textContent = String(state.credits);
+  elements.queueCount.textContent = String(state.queue.length);
+  elements.clearQueueButton.disabled = state.queue.length === 0;
+}
+
+function updateCounts() {
+  const count = state.tracks.length;
+  elements.trackCount.textContent = `${count} ${count === 1 ? 'трек' : 'треків'}`;
+  elements.libraryBadge.textContent = String(count);
+  elements.footerStatus.textContent = count > 0
+    ? `${count} ${count === 1 ? 'трек' : 'треків'} • кредитів: ${state.credits}`
+    : 'Файли залишаються на твоєму пристрої';
+}
+
 function updatePlaybackState() {
   const playing = !audio.paused && !audio.ended && state.currentIndex >= 0;
   elements.playerCard.classList.toggle('is-playing', playing);
   elements.coverArt.classList.toggle('is-playing', playing);
   elements.playButton.setAttribute('aria-label', playing ? 'Пауза' : 'Відтворити');
   elements.playButton.title = playing ? 'Пауза' : 'Відтворити';
-  setStatus(playing ? 'ВІДТВОРЮЄТЬСЯ' : state.currentIndex >= 0 ? 'ГОТОВИЙ' : 'ОЧІКУЄ ФАЙЛИ', playing);
+  if (playing) {
+    setStatus('ВІДТВОРЮЄТЬСЯ', true);
+  } else if (state.currentIndex < 0) {
+    setStatus('ОЧІКУЄ КРЕДИТ');
+  } else if (state.currentPaid) {
+    setStatus('ПАУЗА');
+  } else {
+    setStatus('ОЧІКУЄ КРЕДИТ');
+  }
 }
 
 function updateMediaSession(track) {
@@ -115,7 +153,7 @@ function updateMediaSession(track) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: track.title,
       artist: track.artist,
-      album: 'JukeBox Web'
+      album: 'JukeBox Kiosk'
     });
   }
 }
@@ -144,20 +182,11 @@ function updateVolume() {
   }
 }
 
-function updateCounts() {
-  const count = state.tracks.length;
-  elements.trackCount.textContent = `${count} ${count === 1 ? 'трек' : 'треків'}`;
-  elements.libraryBadge.textContent = String(count);
-  elements.footerStatus.textContent = count > 0
-    ? `${count} ${count === 1 ? 'трек' : 'треків'} у локальній бібліотеці`
-    : 'Локальний режим • файли не залишають браузер';
-}
-
 function renderCurrent() {
-  const track = state.tracks[state.currentIndex];
+  const track = getTrack(state.currentIndex);
   if (!track) {
     elements.trackTitle.textContent = 'Оберіть музику';
-    elements.trackArtist.textContent = 'Перетягніть файли сюди або відкрийте теку';
+    elements.trackArtist.textContent = 'Додайте трек або відкрийте локальну теку';
     elements.coverInitial.textContent = 'J';
     elements.coverArt.style.background = '';
     updateMediaSession(null);
@@ -173,6 +202,45 @@ function renderCurrent() {
   updateProgress();
 }
 
+function renderQueue() {
+  state.queue = state.queue.filter((index) => Boolean(getTrack(index)));
+  elements.queueList.replaceChildren();
+  state.queue.forEach((trackIndex, position) => {
+    const track = getTrack(trackIndex);
+    if (!track) {
+      return;
+    }
+    const item = document.createElement('div');
+    item.className = 'queue-item';
+
+    const number = document.createElement('span');
+    number.className = 'queue-position';
+    number.textContent = String(position + 1).padStart(2, '0');
+
+    const copy = document.createElement('div');
+    copy.className = 'queue-copy';
+    const title = document.createElement('div');
+    title.className = 'queue-title';
+    title.textContent = track.title;
+    const artist = document.createElement('div');
+    artist.className = 'queue-artist';
+    artist.textContent = track.artist;
+    copy.append(title, artist);
+
+    const remove = document.createElement('button');
+    remove.className = 'queue-remove';
+    remove.type = 'button';
+    remove.setAttribute('aria-label', `Прибрати ${track.title} з черги`);
+    remove.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+    remove.addEventListener('click', () => removeFromQueue(position));
+
+    item.append(number, copy, remove);
+    elements.queueList.append(item);
+  });
+  elements.queueEmpty.hidden = state.queue.length > 0;
+  updateCredits();
+}
+
 function renderPlaylist() {
   const query = state.query.trim().toLocaleLowerCase();
   const visibleTracks = state.tracks
@@ -186,17 +254,22 @@ function renderPlaylist() {
 
   elements.playlist.replaceChildren();
   visibleTracks.forEach(({ track, index }) => {
+    const isCurrent = index === state.currentIndex;
+    const isQueued = state.queue.includes(index);
     const item = document.createElement('li');
     item.className = 'playlist-item';
     item.dataset.index = String(index);
     item.tabIndex = 0;
-    if (index === state.currentIndex) {
+    if (isCurrent) {
       item.classList.add('is-current');
+    }
+    if (isQueued) {
+      item.classList.add('is-queued');
     }
 
     const number = document.createElement('span');
     number.className = 'track-number';
-    number.textContent = String(index + 1).padStart(2, '0');
+    number.textContent = isCurrent && !audio.paused ? '▶' : String(index + 1).padStart(2, '0');
 
     const copy = document.createElement('div');
     copy.className = 'track-copy';
@@ -212,16 +285,35 @@ function renderPlaylist() {
     length.className = 'track-length';
     length.textContent = track.duration > 0 ? formatTime(track.duration) : '--:--';
 
+    const actions = document.createElement('div');
+    actions.className = 'track-actions';
     const play = document.createElement('button');
-    play.className = 'track-play';
+    play.className = 'track-action play';
     play.type = 'button';
-    play.setAttribute('aria-label', `Відтворити ${track.title}`);
+    play.title = 'Грати зараз';
+    play.setAttribute('aria-label', `Грати ${track.title}`);
     play.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 9 6-9 6V6Z"/></svg>';
+    const queue = document.createElement('button');
+    queue.className = 'track-action queue';
+    queue.type = 'button';
+    queue.title = 'Додати в чергу';
+    queue.setAttribute('aria-label', `Додати ${track.title} в чергу`);
+    queue.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+    if (isQueued) {
+      queue.classList.add('is-queued');
+    }
+    const remove = document.createElement('button');
+    remove.className = 'track-action remove';
+    remove.type = 'button';
+    remove.title = 'Вилучити';
+    remove.setAttribute('aria-label', `Вилучити ${track.title}`);
+    remove.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+    actions.append(play, queue, remove);
 
-    const activate = () => setCurrentTrack(index, true);
+    const activate = () => playTrack(index, { autoplay: true });
     item.addEventListener('click', (event) => {
-      if (event.target.closest('.track-play')) {
-        event.stopPropagation();
+      if (event.target.closest('button')) {
+        return;
       }
       activate();
     });
@@ -235,8 +327,16 @@ function renderPlaylist() {
       event.stopPropagation();
       activate();
     });
+    queue.addEventListener('click', (event) => {
+      event.stopPropagation();
+      enqueueTrack(index);
+    });
+    remove.addEventListener('click', (event) => {
+      event.stopPropagation();
+      removeTrack(index);
+    });
 
-    item.append(number, copy, length, play);
+    item.append(number, copy, length, actions);
     elements.playlist.append(item);
   });
 
@@ -247,45 +347,137 @@ function renderPlaylist() {
     elements.emptyPlaylist.querySelector('strong').textContent = 'Нічого не знайдено';
     elements.emptyPlaylist.querySelector('span:last-child').textContent = 'Спробуй змінити пошуковий запит';
   } else {
-    elements.emptyPlaylist.querySelector('strong').textContent = 'Плейлист порожній';
+    elements.emptyPlaylist.querySelector('strong').textContent = 'Список пісень порожній';
     elements.emptyPlaylist.querySelector('span:last-child').textContent = 'Додай кілька треків, щоб почати';
   }
+}
+
+function renderAll() {
+  updateCredits();
+  updateCounts();
+  renderCurrent();
+  renderQueue();
+  renderPlaylist();
+  updatePlaybackState();
+}
+
+function consumeCredit() {
+  if (state.credits < 1) {
+    showToast('Немає кредитів. Натисни «+1 кредит».', true);
+    return false;
+  }
+  state.credits -= 1;
+  updateCredits();
+  return true;
+}
+
+function addCredit() {
+  state.credits += 1;
+  updateCredits();
+  showToast('Кредит додано');
 }
 
 function playAudio() {
   if (state.currentIndex < 0) {
     if (state.tracks.length > 0) {
-      setCurrentTrack(0, true);
+      playTrack(0, { autoplay: true });
     }
     return;
   }
+  if (!state.currentPaid && !consumeCredit()) {
+    return;
+  }
+  state.currentPaid = true;
   const playPromise = audio.play();
   if (playPromise && typeof playPromise.catch === 'function') {
     playPromise.catch(() => showToast('Браузер не дозволив відтворення. Натисни play ще раз.', true));
   }
+  updateCredits();
+  updatePlaybackState();
 }
 
-function setCurrentTrack(index, autoplay) {
-  if (!Number.isInteger(index) || index < 0 || index >= state.tracks.length) {
+function playTrack(index, options = {}) {
+  const track = getTrack(index);
+  if (!track) {
     return;
   }
+  const autoplay = options.autoplay !== false;
+  const paid = options.paid === true;
+  if (autoplay && !paid && !consumeCredit()) {
+    return;
+  }
+  if (state.currentIndex >= 0 && state.currentIndex !== index) {
+    state.history.push(state.currentIndex);
+    if (state.history.length > 30) {
+      state.history.shift();
+    }
+  }
   state.currentIndex = index;
-  const track = state.tracks[index];
+  state.currentPaid = paid || autoplay;
   audio.pause();
   audio.src = track.url;
   audio.load();
   audio.currentTime = 0;
   renderCurrent();
   renderPlaylist();
+  renderQueue();
+  updateCounts();
   if (autoplay) {
     playAudio();
   }
 }
 
+function enqueueTrack(index) {
+  if (!getTrack(index)) {
+    return;
+  }
+  if (!consumeCredit()) {
+    return;
+  }
+  state.queue.push(index);
+  renderQueue();
+  renderPlaylist();
+  showToast('Трек додано в чергу');
+}
+
+function removeFromQueue(position, refund = true) {
+  if (position < 0 || position >= state.queue.length) {
+    return;
+  }
+  state.queue.splice(position, 1);
+  if (refund) {
+    state.credits += 1;
+  }
+  renderAll();
+}
+
+function clearQueue() {
+  if (state.queue.length === 0) {
+    return;
+  }
+  state.credits += state.queue.length;
+  state.queue = [];
+  renderAll();
+  showToast('Чергу очищено, кредити повернуто');
+}
+
+function advanceQueue() {
+  while (state.queue.length > 0) {
+    const nextIndex = state.queue.shift();
+    if (getTrack(nextIndex)) {
+      playTrack(nextIndex, { autoplay: true, paid: true });
+      renderQueue();
+      return true;
+    }
+  }
+  showToast('Черга порожня. Додай трек у чергу.', true);
+  return false;
+}
+
 function togglePlay() {
   if (state.currentIndex < 0) {
     if (state.tracks.length > 0) {
-      setCurrentTrack(0, true);
+      playTrack(0, { autoplay: true });
     } else {
       showToast('Спочатку додай аудіофайли.', true);
     }
@@ -298,35 +490,48 @@ function togglePlay() {
   }
 }
 
-function nextTrack(autoplay = true) {
-  if (state.tracks.length === 0) {
-    return;
-  }
-  const nextIndex = (state.currentIndex + 1) % state.tracks.length;
-  setCurrentTrack(nextIndex, autoplay);
-}
-
 function previousTrack() {
-  if (state.tracks.length === 0) {
+  if (state.currentIndex < 0) {
     return;
   }
   if (audio.currentTime > 3) {
     audio.currentTime = 0;
     return;
   }
-  const previousIndex = (state.currentIndex - 1 + state.tracks.length) % state.tracks.length;
-  setCurrentTrack(previousIndex, true);
+  while (state.history.length > 0) {
+    const previousIndex = state.history.pop();
+    if (getTrack(previousIndex)) {
+      playTrack(previousIndex, { autoplay: true, paid: true });
+      return;
+    }
+  }
+  showToast('Це перший трек у історії');
 }
 
-function toggleMute() {
-  if (audio.muted || audio.volume === 0) {
-    audio.muted = false;
-    audio.volume = state.previousVolume || 0.8;
-  } else {
-    state.previousVolume = audio.volume;
-    audio.muted = true;
+function removeTrack(index) {
+  const track = getTrack(index);
+  if (!track) {
+    return;
   }
-  updateVolume();
+  const wasCurrent = index === state.currentIndex;
+  state.queue = state.queue
+    .map((queueIndex) => (queueIndex === index ? -1 : queueIndex > index ? queueIndex - 1 : queueIndex))
+    .filter((queueIndex) => queueIndex >= 0);
+  state.history = state.history
+    .map((historyIndex) => (historyIndex === index ? -1 : historyIndex > index ? historyIndex - 1 : historyIndex))
+    .filter((historyIndex) => historyIndex >= 0);
+  state.tracks.splice(index, 1);
+  URL.revokeObjectURL(track.url);
+  if (wasCurrent) {
+    state.currentIndex = -1;
+    state.currentPaid = false;
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
+  } else if (state.currentIndex > index) {
+    state.currentIndex -= 1;
+  }
+  renderAll();
 }
 
 function loadFiles(fileList) {
@@ -337,12 +542,11 @@ function loadFiles(fileList) {
   }
   const firstNewIndex = state.tracks.length;
   files.forEach((file) => state.tracks.push(createTrack(file)));
-  updateCounts();
   if (state.currentIndex < 0) {
-    setCurrentTrack(firstNewIndex, false);
-  } else {
-    renderPlaylist();
+    state.currentIndex = firstNewIndex;
+    state.currentPaid = false;
   }
+  renderAll();
   showToast(`Додано треків: ${files.length}`);
 }
 
@@ -352,7 +556,7 @@ function resetFileInputs() {
 }
 
 function updateTrackDuration() {
-  const track = state.tracks[state.currentIndex];
+  const track = getTrack(state.currentIndex);
   if (!track || !Number.isFinite(audio.duration)) {
     return;
   }
@@ -366,6 +570,14 @@ function focusSearch() {
   elements.searchInput.select();
 }
 
+function toggleFullscreen() {
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => undefined);
+  } else {
+    document.documentElement.requestFullscreen().catch(() => showToast('Браузер не дозволив повноекранний режим.', true));
+  }
+}
+
 function handleGlobalKeydown(event) {
   const activeElement = document.activeElement;
   const isTyping = activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement.tagName);
@@ -377,7 +589,10 @@ function handleGlobalKeydown(event) {
   if (isTyping && event.key !== 'Escape') {
     return;
   }
-  if (event.code === 'Space') {
+  if (event.key === 'F1' || event.key.toLowerCase() === 'c') {
+    event.preventDefault();
+    addCredit();
+  } else if (event.code === 'Space') {
     event.preventDefault();
     togglePlay();
   } else if (event.key === 'ArrowRight' && state.currentIndex >= 0) {
@@ -387,7 +602,7 @@ function handleGlobalKeydown(event) {
     event.preventDefault();
     audio.currentTime = Math.max(0, audio.currentTime - 5);
   } else if (event.key.toLowerCase() === 'n') {
-    nextTrack();
+    advanceQueue();
   } else if (event.key.toLowerCase() === 'p') {
     previousTrack();
   } else if (event.key.toLowerCase() === 'm') {
@@ -397,10 +612,24 @@ function handleGlobalKeydown(event) {
   }
 }
 
+function toggleMute() {
+  if (audio.muted || audio.volume === 0) {
+    audio.muted = false;
+    audio.volume = state.previousVolume || 0.8;
+  } else {
+    state.previousVolume = audio.volume;
+    audio.muted = true;
+  }
+  updateVolume();
+}
+
 elements.playButton.addEventListener('click', togglePlay);
 elements.previousButton.addEventListener('click', previousTrack);
-elements.nextButton.addEventListener('click', () => nextTrack());
+elements.nextButton.addEventListener('click', advanceQueue);
 elements.muteButton.addEventListener('click', toggleMute);
+elements.addCreditButton.addEventListener('click', addCredit);
+elements.clearQueueButton.addEventListener('click', clearQueue);
+elements.fullscreenButton.addEventListener('click', toggleFullscreen);
 elements.progressBar.addEventListener('input', () => {
   if (state.currentIndex >= 0 && Number.isFinite(audio.duration)) {
     audio.currentTime = (Number(elements.progressBar.value) / 1000) * audio.duration;
@@ -463,7 +692,12 @@ audio.addEventListener('loadedmetadata', updateTrackDuration);
 audio.addEventListener('timeupdate', updateProgress);
 audio.addEventListener('play', updatePlaybackState);
 audio.addEventListener('pause', updatePlaybackState);
-audio.addEventListener('ended', () => nextTrack(true));
+audio.addEventListener('ended', () => {
+  state.currentPaid = false;
+  if (!advanceQueue()) {
+    renderAll();
+  }
+});
 audio.addEventListener('error', () => {
   if (state.currentIndex >= 0) {
     showToast('Не вдалося відтворити цей файл.', true);
@@ -476,7 +710,7 @@ if ('mediaSession' in navigator) {
     play: () => playAudio(),
     pause: () => audio.pause(),
     previoustrack: () => previousTrack(),
-    nexttrack: () => nextTrack()
+    nexttrack: () => advanceQueue()
   };
   Object.entries(actions).forEach(([action, handler]) => {
     try {
@@ -496,7 +730,4 @@ try {
 audio.volume = Math.max(0, Math.min(1, savedVolume));
 state.previousVolume = audio.volume || 0.8;
 updateVolume();
-updateCounts();
-renderPlaylist();
-renderCurrent();
-updatePlaybackState();
+renderAll();
